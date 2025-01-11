@@ -17,9 +17,31 @@ ggplot(data = dataset, aes(x = 1:nrow(dataset), y = serie)) +
   labs(title = "Time Series Plot of pH", x = "Index", y = "pH") +
   theme_minimal()
 
-# Ajustar o modelo
-model <- han_autoencoder(3, 2, aae_encode_decode, num_epochs = 1500)
-model <- fit(model, dataset$serie)
+# Função para carregar modelo existente ou treinar novo modelo
+carregar_ou_treinar_modelo <- function(arquivo_md, arquivo_rds) {
+  # Carregar do .md (se existir e for compatível)
+  if (file.exists(arquivo_md)) {
+    cat("Carregando modelo salvo em .md\n")
+    model <- readRDS(arquivo_md)
+  } else if (file.exists(arquivo_rds)) {
+    cat("Carregando modelo salvo em .rds\n")
+    model <- readRDS(arquivo_rds)
+  } else {
+    cat("Treinando novo modelo\n")
+    model <- han_autoencoder(3, 2, aae_encode_decode, num_epochs = 1500)
+    model <- fit(model, dataset$serie)
+    saveRDS(model, arquivo_rds)
+    cat("Modelo salvo como", arquivo_rds, "\n")
+  }
+  return(model)
+}
+
+# Caminhos dos arquivos
+arquivo_md <- "han_autoencoder_aae.md"
+arquivo_rds <- "han_autoencoder_aae.rds"
+
+# Carregar ou treinar o modelo
+model <- carregar_ou_treinar_modelo(arquivo_md, arquivo_rds)
 
 # Detectar anomalias
 detection <- detect(model, dataset$serie)
@@ -35,7 +57,7 @@ if (!is.null(dataset$event)) {
   TN <- sum(detection$event == FALSE & dataset$event == FALSE)
   FP <- sum(detection$event == TRUE & dataset$event == FALSE)
   FN <- sum(detection$event == FALSE & dataset$event == TRUE)
-
+  
   confMatrix <- matrix(c(TP, FN, FP, TN), nrow = 2, byrow = TRUE)
   colnames(confMatrix) <- c("Pred. Positivo", "Pred. Negativo")
   rownames(confMatrix) <- c("Verdadeiro Pos.", "Verdadeiro Neg.")
